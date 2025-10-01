@@ -85,16 +85,19 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public static final String KEY_IGNORE_CONFIG = "key.ignore";
     public static final String KEY_IGNORE_ID_STRATEGY_CONFIG = "key.ignore.id.strategy";
+    public static final String RECORD_KEY_FIELD_CONFIG = "record.key.field";
     public static final String TOPIC_KEY_IGNORE_CONFIG = "topic.key.ignore";
     public static final String SCHEMA_IGNORE_CONFIG = "schema.ignore";
     public static final String TOPIC_SCHEMA_IGNORE_CONFIG = "topic.schema.ignore";
     public static final String DROP_INVALID_MESSAGE_CONFIG = "drop.invalid.message";
 
     private static final String KEY_IGNORE_DOC = "Whether to ignore the record key for the purpose of forming the OpenSearch document ID."
-            + " When this is set to ``true``, document IDs will be generated according to the " + "``"
+            + " When this is set to ``true``, document IDs will be generated according to the " + ""
             + KEY_IGNORE_ID_STRATEGY_CONFIG + "`` strategy.\n"
             + "Note that this is a global config that applies to all topics, use " + "``" + TOPIC_KEY_IGNORE_CONFIG
             + "`` to apply ``" + KEY_IGNORE_ID_STRATEGY_CONFIG + "`` " + "strategy for specific topics only.";
+    private static final String RECORD_KEY_FIELD_DOC = "When the record key is a MAP or STRUCT, this specifies the field name to extract "
+            + "as the document ID. If not specified and the key is a MAP or STRUCT, an error will be thrown.";
     private static final String TOPIC_KEY_IGNORE_DOC = "List of topics for which ``" + KEY_IGNORE_CONFIG
             + "`` should be ``true``.";
     private static final String KEY_IGNORE_ID_STRATEGY_DOC = "Specifies the strategy to generate the Document ID. Only applicable when ``"
@@ -269,6 +272,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                         DocumentIDStrategy.TOPIC_PARTITION_OFFSET.toString(), DocumentIDStrategy.VALIDATOR,
                         Importance.LOW, KEY_IGNORE_ID_STRATEGY_DOC, DATA_CONVERSION_GROUP_NAME, ++order, Width.LONG,
                         "Document ID generation strategy")
+                .define(RECORD_KEY_FIELD_CONFIG, Type.STRING, null, Importance.LOW, RECORD_KEY_FIELD_DOC,
+                        DATA_CONVERSION_GROUP_NAME, ++order, Width.MEDIUM, "Record Key Field Name")
                 .define(SCHEMA_IGNORE_CONFIG, Type.BOOLEAN, false, Importance.LOW, SCHEMA_IGNORE_CONFIG_DOC,
                         DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT, "Ignore Schema mode")
                 .define(COMPACT_MAP_ENTRIES_CONFIG, Type.BOOLEAN, true, Importance.LOW, COMPACT_MAP_ENTRIES_DOC,
@@ -399,6 +404,10 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public Set<String> topicIgnoreSchema() {
         return Set.copyOf(getList(OpensearchSinkConnectorConfig.TOPIC_SCHEMA_IGNORE_CONFIG));
+    }
+
+    public Optional<String> recordKeyField() {
+        return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.RECORD_KEY_FIELD_CONFIG));
     }
 
     public long flushTimeoutMs() {

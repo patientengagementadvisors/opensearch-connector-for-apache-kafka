@@ -19,8 +19,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -91,6 +96,104 @@ public class DocumentIDStrategyTest {
     void recordKeyTypeThrowsDataExceptionForNoKeyValue() {
         assertThrows(DataException.class,
                 () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.FLOAT64_SCHEMA, null)));
+    }
+
+    @Test
+    void recordKeyWithMapKeyAndFieldName() {
+        final Map<String, Object> mapKey = new HashMap<>();
+        mapKey.put("id", "abc123");
+        mapKey.put("tenant", "acme");
+
+        final var documentId = DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, mapKey), Optional.of("id"));
+        assertEquals("abc123", documentId);
+    }
+
+    @Test
+    void recordKeyWithMapKeyThrowsExceptionWhenFieldNameNotProvided() {
+        final Map<String, Object> mapKey = new HashMap<>();
+        mapKey.put("id", "abc123");
+
+        final var exception = assertThrows(DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, mapKey), Optional.empty()));
+        assertEquals("Key is a MAP but no field name was specified. Set 'record.key.field' configuration.",
+                exception.getMessage());
+    }
+
+    @Test
+    void recordKeyWithMapKeyThrowsExceptionWhenFieldNotFound() {
+        final Map<String, Object> mapKey = new HashMap<>();
+        mapKey.put("id", "abc123");
+
+        final var exception = assertThrows(DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, mapKey), Optional.of("nonexistent")));
+        assertEquals("Field 'nonexistent' not found in key map or is null.", exception.getMessage());
+    }
+
+    @Test
+    void recordKeyWithMapKeyThrowsExceptionWhenFieldIsNull() {
+        final Map<String, Object> mapKey = new HashMap<>();
+        mapKey.put("id", null);
+
+        final var exception = assertThrows(DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, mapKey), Optional.of("id")));
+        assertEquals("Field 'id' not found in key map or is null.", exception.getMessage());
+    }
+
+    @Test
+    void recordKeyWithStructKeyAndFieldName() {
+        final Schema keySchema = SchemaBuilder.struct()
+                .field("id", Schema.STRING_SCHEMA)
+                .field("tenant", Schema.STRING_SCHEMA)
+                .build();
+        final Struct structKey = new Struct(keySchema).put("id", "xyz789").put("tenant", "acme");
+
+        final var documentId = DocumentIDStrategy.RECORD_KEY.documentId(createRecord(keySchema, structKey),
+                Optional.of("id"));
+        assertEquals("xyz789", documentId);
+    }
+
+    @Test
+    void recordKeyWithStructKeyThrowsExceptionWhenFieldNameNotProvided() {
+        final Schema keySchema = SchemaBuilder.struct().field("id", Schema.STRING_SCHEMA).build();
+        final Struct structKey = new Struct(keySchema).put("id", "xyz789");
+
+        final var exception = assertThrows(DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(keySchema, structKey), Optional.empty()));
+        assertEquals("Key is a STRUCT but no field name was specified. Set 'record.key.field' configuration.",
+                exception.getMessage());
+    }
+
+    @Test
+    void recordKeyWithStructKeyThrowsExceptionWhenFieldNotFound() {
+        final Schema keySchema = SchemaBuilder.struct().field("id", Schema.STRING_SCHEMA).build();
+        final Struct structKey = new Struct(keySchema).put("id", "xyz789");
+
+        final var exception = assertThrows(DataException.class, () -> DocumentIDStrategy.RECORD_KEY
+                .documentId(createRecord(keySchema, structKey), Optional.of("nonexistent")));
+        assertEquals("Field 'nonexistent' not found in key struct schema.", exception.getMessage());
+    }
+
+    @Test
+    void recordKeyWithStructKeyThrowsExceptionWhenFieldIsNull() {
+        final Schema keySchema = SchemaBuilder.struct().field("id", Schema.OPTIONAL_STRING_SCHEMA).build();
+        final Struct structKey = new Struct(keySchema).put("id", null);
+
+        final var exception = assertThrows(DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(keySchema, structKey), Optional.of("id")));
+        assertEquals("Field 'id' in key struct is null.", exception.getMessage());
+    }
+
+    @Test
+    void recordKeyWithStructKeySupportsIntegerField() {
+        final Schema keySchema = SchemaBuilder.struct()
+                .field("id", Schema.INT32_SCHEMA)
+                .field("name", Schema.STRING_SCHEMA)
+                .build();
+        final Struct structKey = new Struct(keySchema).put("id", 12345).put("name", "test");
+
+        final var documentId = DocumentIDStrategy.RECORD_KEY.documentId(createRecord(keySchema, structKey),
+                Optional.of("id"));
+        assertEquals("12345", documentId);
     }
 
     SinkRecord createRecord() {

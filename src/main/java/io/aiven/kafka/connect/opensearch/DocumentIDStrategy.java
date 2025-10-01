@@ -18,12 +18,16 @@ package io.aiven.kafka.connect.opensearch;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.data.ConnectSchema;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -31,7 +35,8 @@ public enum DocumentIDStrategy {
 
     NONE("none", "No Doc ID is added", record -> null),
 
-    RECORD_KEY("record.key", "Generated from the record's key", record -> convertKey(record.keySchema(), record.key())),
+    RECORD_KEY("record.key", "Generated from the record's key",
+            record -> convertKey(record.keySchema(), record.key(), null)),
 
     TOPIC_PARTITION_OFFSET("topic.partition.offset", "Generated as record's ``topic+partition+offset``",
             record -> String.format("%s+%s+%s", record.topic(), record.kafkaPartition(), record.kafkaOffset()));
@@ -50,6 +55,13 @@ public enum DocumentIDStrategy {
     }
 
     public String documentId(final SinkRecord record) {
+        return docIdGenerator.apply(record);
+    }
+
+    public String documentId(final SinkRecord record, final Optional<String> keyFieldName) {
+        if (this == RECORD_KEY) {
+            return convertKey(record.keySchema(), record.key(), keyFieldName.orElse(null));
+        }
         return docIdGenerator.apply(record);
     }
 
@@ -94,7 +106,7 @@ public enum DocumentIDStrategy {
         }
     };
 
-    private static String convertKey(final Schema keySchema, final Object key) {
+    private static String convertKey(final Schema keySchema, final Object key, final String keyFieldName) {
         if (key == null) {
             throw new DataException("Key is used as document id and can not be null.");
         }
@@ -117,10 +129,51 @@ public enum DocumentIDStrategy {
             case INT64 :
             case STRING :
                 return String.valueOf(key);
+            case MAP :
+                return extractFromMap(key, keyFieldName);
+            case STRUCT :
+                return extractFromStruct(keySchema, key, keyFieldName);
             default :
                 throw new DataException(String.format("%s is not supported as the document id. Supported are: %s",
                         schemaType.name(), List.of(Schema.INT8_SCHEMA, Schema.INT16_SCHEMA, Schema.INT32_SCHEMA,
-                                Schema.INT64_SCHEMA, Schema.STRING_SCHEMA)));
+                                Schema.INT64_SCHEMA, Schema.STRING_SCHEMA, "MAP", "STRUCT")));
         }
+    }
+
+    private static String extractFromMap(final Object key, final String keyFieldName) {
+        if (keyFieldName == null || keyFieldName.isEmpty()) {
+            throw new DataException(
+                    "Key is a MAP but no field name was specified. Set 'record.key.field' configuration.");
+        }
+        if (!(key instanceof Map)) {
+            throw new DataException("Key is not a Map instance.");
+        }
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> mapKey = (Map<String, Object>) key;
+        final Object fieldValue = mapKey.get(keyFieldName);
+        if (fieldValue == null) {
+            throw new DataException(String.format("Field '%s' not found in key map or is null.", keyFieldName));
+        }
+        return String.valueOf(fieldValue);
+    }
+
+    private static String extractFromStruct(final Schema keySchema, final Object key, final String keyFieldName) {
+        if (keyFieldName == null || keyFieldName.isEmpty()) {
+            throw new DataException(
+                    "Key is a STRUCT but no field name was specified. Set 'record.key.field' configuration.");
+        }
+        if (!(key instanceof Struct)) {
+            throw new DataException("Key is not a Struct instance.");
+        }
+        final Struct structKey = (Struct) key;
+        final Field field = keySchema.field(keyFieldName);
+        if (field == null) {
+            throw new DataException(String.format("Field '%s' not found in key struct schema.", keyFieldName));
+        }
+        final Object fieldValue = structKey.get(field);
+        if (fieldValue == null) {
+            throw new DataException(String.format("Field '%s' in key struct is null.", keyFieldName));
+        }
+        return String.valueOf(fieldValue);
     }
 }

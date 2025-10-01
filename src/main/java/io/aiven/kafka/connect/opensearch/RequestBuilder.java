@@ -69,7 +69,7 @@ public interface RequestBuilder {
     static SetOpenSearchSinkConnectorConfig builder() {
         return config -> index -> record -> payload -> () -> {
             final var documentIDStrategy = config.documentIdStrategy(record.topic());
-            final var documentId = documentIDStrategy.documentId(record);
+            final var documentId = documentIDStrategy.documentId(record, config.recordKeyField());
             if (Objects.isNull(record.value())) {
                 final var deleteRequest = new DeleteRequest().id(documentId).index(index);
                 return config.dataStreamEnabled()
