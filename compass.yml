@@ -1,0 +1,17 @@
+name: opensearch-connector-for-apache-kafka
+id: ari:cloud:compass:7e26bff4-2cac-492b-8305-2ffa572287fd:component/b2017853-3936-404e-be20-20abc51a5462/ee04f856-83f7-4bd1-8fa8-e9c611322dc7
+description: Aiven's OpenSearch® Connector for Apache Kafka®
+configVersion: 1
+typeId: SERVICE
+fields:
+  tier: 4
+links:
+  - name: null
+    type: REPOSITORY
+    url: https://github.com/patientengagementadvisors/opensearch-connector-for-apache-kafka
+relationships:
+  DEPENDS_ON: []
+labels:
+  - source:github
+  - synced-with-jsm
+customFields: null
