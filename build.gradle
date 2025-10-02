@@ -95,6 +95,11 @@ distributions {
     }
 }
 
+distTar {
+    compression = Compression.GZIP
+    archiveExtension = 'tar.gz'
+}
+
 publishing {
     publications {
         maven(MavenPublication) {
