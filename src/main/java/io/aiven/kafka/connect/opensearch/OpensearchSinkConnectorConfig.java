@@ -17,7 +17,6 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -210,9 +209,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         final ServiceLoader<ConfigDefContributor> loaders = ServiceLoader.load(ConfigDefContributor.class,
                 OpensearchSinkConnectorConfig.class.getClassLoader());
 
-        final Iterator<ConfigDefContributor> iterator = loaders.iterator();
-        while (iterator.hasNext()) {
-            iterator.next().addConfig(configDef);
+        for (final ConfigDefContributor contributor : loaders) {
+            contributor.addConfig(configDef);
         }
     }
 
@@ -314,7 +312,15 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                         "Data stream name");
     }
 
-    public static final ConfigDef CONFIG = baseConfigDef();
+    /**
+     * Lazy initialization holder class idiom for thread-safe lazy initialization. The CONFIG field is not initialized
+     * until the ConfigHolder class is referenced, which avoids circular dependency issues during class loading.
+     */
+    private static class ConfigHolder {
+        private static final ConfigDef CONFIG = baseConfigDef();
+    }
+
+    public static final ConfigDef CONFIG = ConfigHolder.CONFIG;
 
     public OpensearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
