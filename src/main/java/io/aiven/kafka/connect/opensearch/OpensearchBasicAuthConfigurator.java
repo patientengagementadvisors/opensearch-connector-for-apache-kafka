@@ -44,6 +44,13 @@ public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigur
             + "The default is the null, and authentication will only be performed if "
             + " both the username and password are non-null.";
 
+    /**
+     * Public no-argument constructor required by ServiceLoader.
+     */
+    public OpensearchBasicAuthConfigurator() {
+        // Default constructor for ServiceLoader
+    }
+
     @Override
     public boolean apply(final OpensearchSinkConnectorConfig config, final HttpAsyncClientBuilder builder) {
         if (!isAuthenticatedConnection(config)) {
