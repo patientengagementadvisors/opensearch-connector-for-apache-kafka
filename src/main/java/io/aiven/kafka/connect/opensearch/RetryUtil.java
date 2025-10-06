@@ -108,17 +108,20 @@ public class RetryUtil {
                 return callable.call();
             } catch (final Exception e) {
                 if (!repeatableException.isAssignableFrom(e.getClass())) {
-                    final var msg = String.format("Non-repeatable exception thrown by %s", callName);
+                    final var msg = String.format("Non-repeatable exception thrown by %s: %s", callName,
+                            e.getMessage());
                     LOGGER.error(msg, e);
                     throw new ConnectException(msg, e);
                 } else if (attempts < maxAttempts) {
                     final long sleepTimeMs = computeRandomRetryWaitTimeInMillis(retryAttempts, retryBackoffMs);
-                    final var msg = String.format("Failed to %s with attempt %s/%s, will attempt retry after %s ms. ",
-                            callName, attempts, maxAttempts, sleepTimeMs);
-                    LOGGER.warn(msg + "Failure reason: {}", e);
+                    final var msg = String.format(
+                            "Failed to %s with attempt %s/%s, will attempt retry after %s ms. Failure reason: %s",
+                            callName, attempts, maxAttempts, sleepTimeMs, e.getMessage());
+                    LOGGER.warn(msg, e);
                     time.sleep(sleepTimeMs);
                 } else {
-                    final var msg = String.format("Failed to %s after total of %s attempt(s)", callName, attempts);
+                    final var msg = String.format("Failed to %s after total of %s attempt(s). Final error: %s",
+                            callName, attempts, e.getMessage());
                     LOGGER.error(msg, e);
                     throw new ConnectException(msg, e);
                 }

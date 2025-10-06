@@ -426,7 +426,8 @@ public class BulkProcessor {
                     }
                     return response;
                 } catch (final IOException e) {
-                    LOGGER.warn("Failed to send bulk request from batch {} of {} records", batchId, batch.size(), e);
+                    LOGGER.warn("Failed to send bulk request from batch {} of {} records. Error: {} - {}", batchId,
+                            batch.size(), e.getClass().getSimpleName(), e.getMessage(), e);
                     throw new RetriableError(e);
                 }
             }, maxRetries, retryBackoffMs, RetriableError.class);
