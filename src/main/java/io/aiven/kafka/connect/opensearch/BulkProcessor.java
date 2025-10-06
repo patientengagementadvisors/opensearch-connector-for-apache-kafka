@@ -368,12 +368,17 @@ public class BulkProcessor {
 
         @Override
         public BulkResponse call() throws Exception {
+            final long startTime = System.currentTimeMillis();
+            LOGGER.info("Starting batch {} with {} records", batchId, batch.size());
             try {
                 final var rsp = execute();
-                LOGGER.debug("Successfully executed batch {} of {} records", batchId, batch.size());
+                final long duration = System.currentTimeMillis() - startTime;
+                LOGGER.info("Successfully completed batch {} of {} records in {}ms", batchId, batch.size(), duration);
                 onBatchCompletion(batch.size());
                 return rsp;
             } catch (final Exception e) {
+                final long duration = System.currentTimeMillis() - startTime;
+                LOGGER.error("Failed batch {} of {} records after {}ms", batchId, batch.size(), duration, e);
                 failAndStop(e);
                 throw e;
             }
