@@ -267,7 +267,9 @@ public class BulkProcessor {
      */
     public void throwIfFailed() {
         if (isFailed()) {
-            throw error.get();
+            final ConnectException exception = error.get();
+            LOGGER.error("BulkProcessor failed with error: {}", exception.getMessage(), exception);
+            throw exception;
         }
     }
 
@@ -317,7 +319,7 @@ public class BulkProcessor {
      * If any task has failed prior to or during the flush, {@link ConnectException} will be thrown with that error.
      */
     public void flush(final long timeoutMs) {
-        LOGGER.trace("flush {}", timeoutMs);
+        LOGGER.debug("Starting flush with timeout {}ms, buffered records: {}", timeoutMs, bufferedRecords());
         final long flushStartTimeMs = time.milliseconds();
         try {
             flushRequested = true;
@@ -325,14 +327,23 @@ public class BulkProcessor {
                 notifyAll();
                 for (long elapsedMs = time.milliseconds() - flushStartTimeMs; !isTerminal() && elapsedMs < timeoutMs
                         && bufferedRecords() > 0; elapsedMs = time.milliseconds() - flushStartTimeMs) {
+                    LOGGER.trace("Waiting for flush completion. Elapsed: {}ms, Buffered: {}, Terminal: {}", elapsedMs,
+                            bufferedRecords(), isTerminal());
                     wait(timeoutMs - elapsedMs);
                 }
                 throwIfTerminal();
                 if (bufferedRecords() > 0) {
-                    throw new ConnectException("Flush timeout expired with unflushed records: " + bufferedRecords());
+                    final String errorMsg = String.format(
+                            "Flush timeout expired after %dms with %d unflushed records. Timeout: %dms",
+                            time.milliseconds() - flushStartTimeMs, bufferedRecords(), timeoutMs);
+                    LOGGER.error(errorMsg);
+                    throw new ConnectException(errorMsg);
                 }
+                LOGGER.debug("Flush completed successfully in {}ms", time.milliseconds() - flushStartTimeMs);
             }
         } catch (final InterruptedException e) {
+            LOGGER.error("Flush interrupted after {}ms with {} buffered records",
+                    time.milliseconds() - flushStartTimeMs, bufferedRecords(), e);
             throw new ConnectException(e);
         } finally {
             flushRequested = false;

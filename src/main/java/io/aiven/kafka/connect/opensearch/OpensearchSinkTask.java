@@ -177,8 +177,14 @@ public class OpensearchSinkTask extends SinkTask {
 
     @Override
     public void flush(final Map<TopicPartition, OffsetAndMetadata> offsets) {
-        LOGGER.trace("Flushing data to Opensearch with the following offsets: {}", offsets);
-        client.flush();
+        LOGGER.debug("Flushing data to Opensearch with the following offsets: {}", offsets);
+        try {
+            client.flush();
+            LOGGER.debug("Successfully flushed data to Opensearch for offsets: {}", offsets);
+        } catch (final Exception e) {
+            LOGGER.error("Failed to flush data to Opensearch for offsets: {}. Error: {}", offsets, e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Override
